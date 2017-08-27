@@ -6,14 +6,18 @@ source2:https://github.com/MorvanZhou/PyTorch-Tutorial/blob/master/tutorial-cont
 #Qingui Liu
 #26/08/2017
 """
+from __future__ import print_function
+
 import torch
 import torchvision
 import torch.nn as nn
+import torch.cuda as cuda
+from torch.autograd import Variable
 import numpy as np
 import torch.utils.data as data
 import torchvision.transforms as transforms
 import torchvision.datasets as dsets
-from torch.autograd import Variable
+
 
 #basic examples 1
 #tensors
@@ -46,3 +50,18 @@ tensor = torch.FloatTensor(data)
 a = [[1,2],[3,2]]
 b = torch.FloatTensor(a)
 # print (np.matmul(a,a), torch.mm(b,b), a,b)
+
+x= torch.Tensor(5,3)
+y = torch.rand(5,3)
+z= torch.Tensor(5,3)
+
+torch.add(x,y,out=z)
+
+a = z[:,1]
+b = a.numpy()
+c = torch.from_numpy(b)
+
+if cuda.is_available():
+    y = y.cuda()
+    x = x.cuda()
+    x+y
