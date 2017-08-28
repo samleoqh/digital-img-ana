@@ -21,18 +21,18 @@ import torchvision.datasets as dsets
 
 #basic examples 1
 #tensors
-x = Variable(torch.Tensor([1]),requires_grad=True)
-w = Variable(torch.Tensor([2]),requires_grad=True)
-b = Variable(torch.Tensor([3]),requires_grad=True)
 
-y = w * x + b
+x = Variable(torch.ones(2,2),requires_grad=True)
+y = x + 2
+y = y * np.pi
+z = y.mean()
 
 # gradients.
-y.backward()
+z.backward()
 
-# print(x.grad)
-# print(w.grad)
-# print(b.grad)
+print(y, z, x.grad)
+
+
 #convert numpy to tensor, vise versa
 np_data = np.arange(6).reshape(2,3)
 torch_data = torch.from_numpy(np_data)
