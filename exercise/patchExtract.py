@@ -13,12 +13,14 @@ Impervious surfaces (RGB: 255, 255, 255)---> 7  or 4(b111 -3)
 Car                 (RGB: 255, 255, 0)  ---> 6  or 5(b110 -1)
 
 there are no '5' - b101 and '0' -b000,
+OpenCV stores images in BGR order instead of RGB.
 """
 
 import cv2
 import os
 from imutils import paths
-import scipy.misc
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def main():
@@ -37,27 +39,56 @@ def main():
     total_patch = myDataset.patch_extract(patchSize=(ph, pw), stepSize=step)
     print("Total number of patches extracted is : {0}".format(total_patch))
 
+    # exam the gray patch generated to
+    img = cv2.imread("./images/remotesensing/train/patch_0_0_top_potsdam_2_10_label.png",cv2.IMREAD_GRAYSCALE)
+    plt.imshow(img, 'gray')
+    plt.show()
 
-class ImageData:
+class ImageData(object):
+    """ Image dataset class providing some basic image pre processing functions """
+
     def __init__(self, path="./image"):
         self.folder = path
         self.num_files = sum([len(files) for r, d, files in os.walk(self.folder)])
 
     def __str__(self):
-        return "The path to the data set is '%s' which has total %d files" % (self.folder,self.num_files)
+        return "The path to the data set is '%s' which has total %d files" % (self.folder, self.num_files)
 
     def __setattr__(self, key, value):
         self.__dict__[key] = value
 
     @classmethod
-    def rgb2gray(cls,rgb_img):
+    def rgb2gray(cls, rgb_img):
         assert len(rgb_img.shape) == 3, 'RGB images only'
-        gray_img = rgb_img[:, :, 2] / 255 + \
-                   (rgb_img[:, :, 1] / 255) * 2 + \
-                   (rgb_img[:, :, 0] / 255) * 4
+        # mapping 3-channel RGB values to a gray scalar to form a new gray scale image
+        gray_img = np.zeros((rgb_img.shape[0], rgb_img.shape[1]), dtype=np.uint8)
+        gray_img[:] = rgb_img[:, :, 2] / 255 + \
+                      (rgb_img[:, :, 1] / 255) * 2 + \
+                      (rgb_img[:, :, 0] / 255) * 4
+
         return gray_img
 
-    #@classmethod
+    @classmethod
+    def gray2rgb(cls, gray_img):
+        assert len(gray_img.shape) == 2, 'gray images only'
+        assert np.max(gray_img) < 8, 'gray level range 0-7 '
+        # mapping gray image to 3-channel RGB image
+        # only support gray scale range from 0-7.
+        size = gray_img.shape
+        newRGB = np.uint8(gray_img)
+        newRGB = np.unpackbits(newRGB)  # uint8 numbers converted to 8-bit [0,0,0,0,0,0,1,0] - 2
+        newRGB = np.reshape(newRGB, (size[0], size[1], 8))
+        newRGB = newRGB[:, :, -3:]
+        newRGB *= 255
+        # if use scipy.misc.imsave() instead of cv2.imwrite() to save file, need change BGR to RGB
+        # rgb_img = np.zeros((gray_img.shape[0], gray_img.shape[1], 3), dtype=np.uint8)
+        # rgb_img[:, :, 0] = newRGB[:, :, 2]
+        # rgb_img[:, :, 1] = newRGB[:, :, 1]
+        # rgb_img[:, :, 2] = newRGB[:, :, 0]
+
+        return newRGB
+
+    # @classmethod
     def patch_extract(self, patchSize=(256, 256), stepSize=200):
         """
         :param patchSize: patch size - height and width
@@ -73,6 +104,7 @@ class ImageData:
             path, filename = os.path.split(imgPath)  # filename = imgPath.split(os.path.sep)[-1]
             suffix = os.path.splitext(os.path.basename(filename))[0] + ".png"
             img = cv2.imread(imgPath)
+            #img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
 
             for x in range(0, img.shape[0], stepSize):
                 px = x
@@ -97,21 +129,12 @@ class ImageData:
 
                     patch = img[px:endX, py:endY]
 
-                    # you can change the new filename format as you please
-                    newName = "patch_" + str(px) + "_" + str(py) + "_" + suffix
+                    file_name = "patch_" + str(px) + "_" + str(py) + "_" + suffix
 
-                    # exam if it is a labeled image by its filename containing 'label' str
                     if "label" in filename:
-                        # mapping 3-channel RGB values to a gray scalar to form a new grayscale image
-                        # newPatch = patch[:, :, 2] / 255 + \
-                        #            (patch[:, :, 1] / 255) * 2 + \
-                        #            (patch[:, :, 0] / 255) * 4
-                        newPatch = ImageData.rgb2gray(patch)
+                        patch = ImageData.rgb2gray(patch) # convert a RGB image into a gray level image
 
-                        scipy.misc.imsave(os.path.join(path, newName),
-                                          newPatch)  # don't know how to use cv2 to save as a gray file
-                    else:
-                        cv2.imwrite(os.path.join(path, newName), patch)
+                    cv2.imwrite(os.path.join(path, file_name), patch)
 
                     total_patch += 1
 
@@ -120,10 +143,3 @@ class ImageData:
 
 if __name__ == "__main__":
     main()
-
-
-# newPatch = np.uint8(newPatch)
-# newRGB = np.unpackbits(newPatch) # uint8 numbers converted to 8-bit [0,0,0,0,0,0,1,0] - 2
-# newRGB = np.reshape(newRGB,(ph,pw,8))
-# newRGB = newRGB[:,:,5:8]
-# newRGB *= 255
