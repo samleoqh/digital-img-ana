@@ -27,7 +27,7 @@ def main():
     output_dir = './output'  # change it according to your own output folder
     #img_name = os.path.join(input_dir, 'zebra_1.tif')
     img_name = os.path.join(input_dir, 'coins.png')
-    features = ['min', 'max', 'mean', 'variance', 'skewness', 'kurtosis',
+    features = ['min', 'max', 'mean', 'std_dev', 'skewness', 'kurtosis',
                  'entropy', 'energy', 'smoothness', 'coefficient']
 
     # Arbitrarily create an 2-D array for test
@@ -67,7 +67,7 @@ def basic_info(image):
     :return: info_list, some basic features
     """
     info_list = {'min': 0, 'max': 0,
-                 'mean': 0, 'variance': 0,
+                 'mean': 0, 'std_dev': 0,
                  'skewness': 0, 'kurtosis': 0,
                  'entropy': 0, 'energy': 0,
                  'smoothness': 0, 'coefficient': 0}
@@ -85,12 +85,13 @@ def basic_info(image):
 
     info_list['mean'] = mean
     variance = ((x - mean)**2).dot(hx)
-    info_list['variance'] = variance
-    info_list['skewness'] = (((x - mean)**3)*hx).sum()
-    info_list['kurtosis'] = (((x - mean)**4)*hx ).sum()- 3
+    std = np.sqrt(variance)
+    info_list['std_dev'] = std
+    info_list['skewness'] = ((x - mean)**3).dot(hx)/std**3          # different with lecture notes
+    info_list['kurtosis'] = (((x - mean)**4)*hx).sum()/std**4 - 3    # different with lecture notes
     info_list['energy'] = (hx*hx).sum()
     info_list['smoothness'] = 1 - 1/(1+variance)
-    info_list['coefficient'] = np.sqrt(variance)/mean
+    info_list['coefficient'] = std/mean
 
     # ref: https://stackoverflow.com/questions/16647116/faster-way-to-analyze-each-sub-window-in-an-image
     log_h = np.log2(hx+0.00001)
