@@ -25,24 +25,78 @@ import cv2
 def main():
     input_dir = './images'  # change it according to your own image folder
     output_dir = './output'  # change it according to your own output folder
-    img_name = os.path.join(input_dir, 'zebra_1.tif')
+    #img_name = os.path.join(input_dir, 'zebra_1.tif')
+    img_name = os.path.join(input_dir, 'coins.png')
+    features = ['min', 'max', 'mean', 'variance', 'skewness', 'kurtosis',
+                 'entropy', 'energy', 'smoothness', 'coefficient']
+
+    # Arbitrarily create an 2-D array for test
+    # img = np.array([[1, 2, 3],
+    #                   [4, 5, 6],
+    #                   [7, 8, 9]])
 
     img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
-    # Arbitrarily create an 2-D array for demo
-    # img = np.array([[1, 0, 2],
-    #                   [7, 8, 0],
-    #                   [2, 4, 3]])
+    img_inf = basic_info(img)
+    fig_num = imagesc_hist(img, "Original Image")
+    print("-----original image ------------")
+    for keys in features:
+        print(keys,":",img_inf[keys])
 
-    #fig_num = imagesc_hist()
-    fig_num = imagesc_hist(img, "Zebra 1")
     #img2 = cv2.equalizeHist(img)
     img2 = hist_equalization(img)
-    img3 = requantize(img2, 5)
+    img_inf = basic_info(img2)
     fig_num = imagesc_hist(img2,"Hist equalized",fig_num)
+    print("-----hist equalized image ------------")
+    for keys in features:
+        print(keys,":",img_inf[keys])
+
+    img3 = requantize(img2, level_num=8)
+    img_inf = basic_info(img3)
     fig_num = imagesc_hist(img3, "Requantized", fig_num)
+    print("-----requantized image ------------")
+    for keys in features:
+        print(keys, ":", img_inf[keys])
+
 
     plt.show()
 
+def basic_info(image):
+    """
+    Perform some basic (1-order statistic) texture features for gray-level images.
+    :param image: 2-D gray-level image
+    :return: info_list, some basic features
+    """
+    info_list = {'min': 0, 'max': 0,
+                 'mean': 0, 'variance': 0,
+                 'skewness': 0, 'kurtosis': 0,
+                 'entropy': 0, 'energy': 0,
+                 'smoothness': 0, 'coefficient': 0}
+    #hist, - = np.histogram(image.flatten(), bins=256, range=[0, 255], density=False)
+
+    info_list['min'] = image.min()
+    info_list['max'] = image.max()
+
+    #hist = cv2.calcHist(image,[0],None,[256],[0,256])
+    hist,_ = np.histogram(image.flatten(), bins=256, range=[0, 255], density=False)
+    hx = hist.ravel()/hist.sum()
+    # mean = np.mean(image.flatten())
+    x = np.arange(256)
+    mean = hx.dot(x)
+
+    info_list['mean'] = mean
+    variance = ((x - mean)**2).dot(hx)
+    info_list['variance'] = variance
+    info_list['skewness'] = (((x - mean)**3)*hx).sum()
+    info_list['kurtosis'] = (((x - mean)**4)*hx ).sum()- 3
+    info_list['energy'] = (hx*hx).sum()
+    info_list['smoothness'] = 1 - 1/(1+variance)
+    info_list['coefficient'] = np.sqrt(variance)/mean
+
+    # ref: https://stackoverflow.com/questions/16647116/faster-way-to-analyze-each-sub-window-in-an-image
+    log_h = np.log2(hx+0.00001)
+    info_list['entropy'] = -1 * (log_h*hx).sum()
+
+    return info_list
 
 def imagesc_hist(f_img=None, name='Demo', fig_num=0):
     """
