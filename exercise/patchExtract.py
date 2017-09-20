@@ -29,26 +29,28 @@ def main():
     :return: none
     """
     # initialize some parameters needed by patch_extract function
-    dir = "./images/remotesensing"  # image home folder
+    inputdir = "./images/train"  # image home folder
+    output = "./output"
     (ph, pw) = (256, 256)  # patch size
     step = 5800  # sliding step
 
-    myDataset = ImageData(dir)
+    myDataset = ImageData(inputdir,output)
     print(myDataset)
 
     total_patch = myDataset.patch_extract(patchSize=(ph, pw), stepSize=step)
     print("Total number of patches extracted is : {0}".format(total_patch))
 
     # exam the gray patch generated to
-    img = cv2.imread("./images/remotesensing/train/patch_0_0_top_potsdam_2_10_label.png",cv2.IMREAD_GRAYSCALE)
-    plt.imshow(img, 'gray')
-    plt.show()
+    # img = cv2.imread("./output/patch_0_0_top_potsdam_2_10_label.png",cv2.IMREAD_GRAYSCALE)
+    # plt.imshow(img, 'gray')
+    # plt.show()
 
 class ImageData(object):
     """ Image dataset class providing some basic image pre processing functions """
 
-    def __init__(self, path="./image"):
+    def __init__(self, path="./image",outdir="./output"):
         self.folder = path
+        self.outputs = outdir
         self.num_files = sum([len(files) for r, d, files in os.walk(self.folder)])
 
     def __str__(self):
@@ -100,41 +102,36 @@ class ImageData(object):
         ph = patchSize[0]  # patch height
         pw = patchSize[1]  # patch width
         total_patch = 0
-        for _, imgPath in enumerate(paths.list_images(self.folder)):
+        valid_exts = (".jpg", ".jpeg", ".png", ".bmp",".tif")
+        for _, imgPath in enumerate(paths.list_files(self.folder, valid_exts)):
             path, filename = os.path.split(imgPath)  # filename = imgPath.split(os.path.sep)[-1]
             suffix = os.path.splitext(os.path.basename(filename))[0] + ".png"
             img = cv2.imread(imgPath)
             #img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
 
+
             for x in range(0, img.shape[0], stepSize):
                 px = x
-                endX = px + ph
-                if endX > img.shape[0]:
-                    x = endX
-                    endX = img.shape[0]
-                    px = endX - ph
-                else:
-                    x += stepSize
-                    y = 0
+                end_x = px + ph
+                if end_x > img.shape[0]:
+                    end_x = img.shape[0]
+                    px = max(end_x - ph, 0)
 
                 for y in range(0, img.shape[1], stepSize):
                     py = y
-                    endY = py + pw
-                    if endY > img.shape[1]:
-                        y = endY
-                        endY = img.shape[1]
-                        py = endY - pw
-                    else:
-                        y += stepSize
+                    end_y = py + pw
+                    if end_y > img.shape[1]:
+                        end_y = img.shape[1]
+                        py = max(end_y - pw, 0)
 
-                    patch = img[px:endX, py:endY]
+                    patch = img[px:end_x, py:end_y]
 
                     file_name = "patch_" + str(px) + "_" + str(py) + "_" + suffix
 
                     if "label" in filename:
                         patch = ImageData.rgb2gray(patch) # convert a RGB image into a gray level image
 
-                    cv2.imwrite(os.path.join(path, file_name), patch)
+                    cv2.imwrite(os.path.join(self.outputs, file_name), patch)
 
                     total_patch += 1
 
