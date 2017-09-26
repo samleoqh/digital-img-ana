@@ -15,6 +15,7 @@ each texture, extract GLCM feature images, and segment these images.
 # Standard library imports
 import os
 import numpy as np
+import time
 
 # Third party imports
 import matplotlib.pyplot as plt
@@ -24,10 +25,39 @@ from matplotlib import cm
 import matplotlib.colors as mcolors
 
 def main():
-    # testing the subimage function
-    filepath = "./images/mosaic2.png"  # image file full path
     output = "./output"
-    suffix = os.path.splitext(os.path.basename(filepath))[0]
+    #suffix = os.path.splitext(os.path.basename(filepath))[0]
+
+    #image_file = './output/subimg-mosaic2-2.png'
+    image_file = './images/mosaic2.png'
+    gray_img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)  # read image by opencv as grayscale
+    req_img = requantize(gray_img, level_num=10)
+    cmap = plt.get_cmap('jet')
+
+    ws = [0.5, 0.5, 0.0, 0.0]  # vertical and horizonal isotropic
+    start_time = time.time()
+    feature_img1 = construct_feature_img(req_img, win_order=2, feature='correlation',
+                                     glcm_type='isotropic', weights=ws,
+                                     fill_type='mirror', norm=True, symm=True)
+    print('Time cost of correlation: ', time.time() - start_time)
+
+    fig, ax = plt.subplots()
+    cax = ax.imshow(feature_img1, interpolation='nearest', cmap=cmap)
+    ax.set_title('glcm correlation feature img by window(5x5) with v/h isotropic')
+    colorbar_index(ncolors=11, cmap=cmap)
+
+    start_time = time.time()
+    feature_img2 = construct_feature_img(req_img, win_order=10, feature='correlation',
+                                         glcm_type='isotropic', weights=ws,
+                                         fill_type='mirror', norm=True, symm=True)
+    print('Time cost of correlation: ', time.time() - start_time)
+
+    fig, ax = plt.subplots()
+    cax = ax.imshow(feature_img2, interpolation='nearest', cmap=cmap)
+    ax.set_title('glcm correlation feature img by window(21x21) with v/h isotropic')
+    colorbar_index(ncolors=11, cmap=cmap)
+
+    plt.show()
 
 
     # cut the input image into 4 parts equally by subimage() function
@@ -36,7 +66,7 @@ def main():
     #     cv2.imwrite(path, patch)
 
 
-# these two functions copied
+# these below two functions copied
 # from https://stackoverflow.com/questions/18704353/correcting-matplotlib-colorbar-ticks
 
 def colorbar_index(ncolors, cmap):
@@ -73,6 +103,7 @@ def cmap_discretize(cmap, N):
                       for i in range(N + 1)]
     # Return colormap object.
     return mcolors.LinearSegmentedColormap(cmap.name + "_%d" % N, cdict, 1024)
+
 
 def requantize(image, level_num=8):
     """
@@ -211,16 +242,14 @@ def direction_glcm(win_image, direction='horizontal', step=1, weight=1):
     return glcm
 
 
-def isotropic_glcm(win_image, step=1, weights=None):
-    # compute isotropic glcm
+def isotropic_glcm(win_image, step=1, weights=[0.25, 0.25, 0.25, 0.25]):
     if weights is None:
         weights = [0.25, 0.25, 0.25, 0.25]
-    glcm = direction_glcm(win_image, 'horizontal', step) * weights[0]
-    glcm += direction_glcm(win_image, 'vertical', step) * weights[1]
-    glcm += direction_glcm(win_image, 'diagonal1', step) * weights[2]
-    glcm += direction_glcm(win_image, 'diagonal2', step) * weights[3]
+    glcm = direction_glcm(win_image, 'horizontal') * weights[0]
+    glcm += direction_glcm(win_image, 'vertical') * weights[1]
+    glcm += direction_glcm(win_image, 'diagonal1') * weights[2]
+    glcm += direction_glcm(win_image, 'diagonal2') * weights[3]
     return glcm
-
 
 def symmetrise(glcm):
     return glcm + glcm.T
@@ -243,6 +272,8 @@ def glcm_measures(glcm, name=None, normed=False, symmetric=False):
                         correlation=0, cluster_shade=0, variance_i=0, variance_j=0, mean_i=0, mean_j=0)
 
     M, N = glcm.shape
+
+    np.seterr(divide='ignore', invalid='ignore')
 
     if symmetric:
         # symmetrisation
@@ -327,7 +358,7 @@ def scale_image(image, min_val=0, max_val=255):
     return scale_img
 
 
-def get_glcm(win_img, type_name=None):
+def get_glcm(win_img, type_name=None, weights=None):
     if type_name is 'horizontal':
         glcm = direction_glcm(win_img, direction='horizontal')
     elif type_name is 'vertical':
@@ -337,19 +368,19 @@ def get_glcm(win_img, type_name=None):
     elif type_name is 'diagonal2':
         glcm = direction_glcm(win_img, direction='diagonal2')
     else:
-        glcm = isotropic_glcm(win_img)
+        glcm = isotropic_glcm(win_img, weights)
     return glcm
 
 
-def construct_feature_img(gray_img, win_order=3, feature='correlation', glcm_type='isotropic', fill_type='mirror',
-                          norm=True, symm=True):
+def construct_feature_img(gray_img, win_order=3, feature='correlation', glcm_type='isotropic', weights=None,
+                          fill_type='mirror', norm=True, symm=True):
     M, N = gray_img.shape
     feature_img = np.zeros([M, N])
 
     for i in range(M):
         for j in range(N):
             win_img = glcm_window_img(gray_img, neighbor=win_order, current_row=i, current_col=j, fill=fill_type)
-            glcm = get_glcm(win_img, glcm_type)
+            glcm = get_glcm(win_img, glcm_type, weights)
             feature_img[i, j] = glcm_measures(glcm, name=feature, normed=norm, symmetric=symm)
 
     return scale_image(feature_img)
