@@ -127,7 +127,7 @@ def glcm_window_img(gray_image, neighbor=2, current_row=0, current_col=0, fill='
 
 
 @jit
-def direction_glcm(win_image, direction='horizontal', step=1):
+def direction_glcm(win_image, direction='horizontal', step=1, level=0):
     """
     Perfome directional glcm computing
 
@@ -156,7 +156,12 @@ def direction_glcm(win_image, direction='horizontal', step=1):
     :return:
     """
     M, N = win_image.shape
-    levels = list(np.unique(win_image))
+
+    if level is 0:
+        levels = list(np.unique(win_image))
+    else:
+        levels = list(np.arange(level))
+
     num_levels = len(levels)
     weight = 1
 
@@ -207,13 +212,13 @@ def direction_glcm(win_image, direction='horizontal', step=1):
 
 
 @jit
-def isotropic_glcm(win_image, weights=[0.25, 0.25, 0.25, 0.25], stepsize=1):
+def isotropic_glcm(win_image, weights=[0.25, 0.25, 0.25, 0.25], stepsize=1, level=0):
     if weights is None:
         weights = [0.25, 0.25, 0.25, 0.25]
-    glcm = direction_glcm(win_image, 'horizontal', step=stepsize) * weights[0]
-    glcm += direction_glcm(win_image, 'vertical', step=stepsize) * weights[1]
-    glcm += direction_glcm(win_image, 'diagonal1', step=stepsize) * weights[2]
-    glcm += direction_glcm(win_image, 'diagonal2', step=stepsize) * weights[3]
+    glcm = direction_glcm(win_image, 'horizontal', step=stepsize, level=level) * weights[0]
+    glcm += direction_glcm(win_image, 'vertical', step=stepsize, level=level) * weights[1]
+    glcm += direction_glcm(win_image, 'diagonal1', step=stepsize, level=level) * weights[2]
+    glcm += direction_glcm(win_image, 'diagonal2', step=stepsize, level=level) * weights[3]
     return glcm
 
 
@@ -335,30 +340,30 @@ def mask_featured_image(image, feature_img, threshold=40, above=True):
 
 
 @jit
-def get_glcm(win_img, type_name=None, weights=None, stepsize=1):
+def get_glcm(win_img, type_name=None, weights=None, stepsize=1, level=0):
     if type_name is 'horizontal':
-        glcm = direction_glcm(win_img, direction='horizontal', step=stepsize)
+        glcm = direction_glcm(win_img, direction='horizontal', step=stepsize,level=level)
     elif type_name is 'vertical':
-        glcm = direction_glcm(win_img, direction='vertical', step=stepsize)
+        glcm = direction_glcm(win_img, direction='vertical', step=stepsize,level=level)
     elif type_name is 'diagonal1':
-        glcm = direction_glcm(win_img, direction='diagonal1', step=stepsize)
+        glcm = direction_glcm(win_img, direction='diagonal1', step=stepsize,level=level)
     elif type_name is 'diagonal2':
-        glcm = direction_glcm(win_img, direction='diagonal2', step=stepsize)
+        glcm = direction_glcm(win_img, direction='diagonal2', step=stepsize,level=level)
     else:
-        glcm = isotropic_glcm(win_img, weights, stepsize)
+        glcm = isotropic_glcm(win_img, weights, stepsize,level=level)
     return glcm
 
 
 @jit
 def construct_glcm_feature_img(gray_img, win_order=3, feature='correlation', glcm_type='isotropic', weights=None,
-                               fill_type='mirror', norm=True, symm=True, stepsize=1):
+                               fill_type='mirror', norm=True, symm=True, stepsize=1,level=0):
     M, N = gray_img.shape
     feature_img = np.zeros([M, N])
 
     for i in range(M):
         for j in range(N):
             win_img = glcm_window_img(gray_img, neighbor=win_order, current_row=i, current_col=j, fill=fill_type)
-            glcm = get_glcm(win_img, glcm_type, weights, stepsize=stepsize)
+            glcm = get_glcm(win_img, glcm_type, weights, stepsize=stepsize,level=0)
             feature_img[i, j] = glcm_measures(glcm, name=feature, normed=norm, symmetric=symm)
 
     return scale_image(feature_img)
