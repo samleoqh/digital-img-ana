@@ -24,6 +24,8 @@ import matplotlib.colors as mcolors
 
 # using numba to optimize code
 from numba import jit
+from skimage.feature import greycomatrix, greycoprops
+
 
 # these below two functions copied
 # from https://stackoverflow.com/questions/18704353/correcting-matplotlib-colorbar-ticks
@@ -324,7 +326,7 @@ def scale_image(image, min_val=0, max_val=255):
     im_min = np.nanmin(image)
     scale_img = min_val + (1 - (im_max - image) / (im_max - im_min)) * max_val
 
-    return scale_img
+    return scale_img.astype('uint8')
 
 
 def mask_featured_image(image, feature_img, threshold=40, above=True):
@@ -358,6 +360,24 @@ def construct_glcm_feature_img(gray_img, win_order=3, feature='correlation', glc
             win_img = glcm_window_img(gray_img, neighbor=win_order, current_row=i, current_col=j, fill=fill_type)
             glcm = get_glcm(win_img, glcm_type, weights, stepsize=stepsize)
             feature_img[i, j] = glcm_measures(glcm, name=feature, normed=norm, symmetric=symm)
+
+    return scale_image(feature_img)
+
+@jit
+def construct_texture_img(gray_img, win_order=3, feature='contrast', angles=0,
+                               fill_type='mirror', norm=True, symm=True, stepsize=1,levels=7):
+    # THIS  FUNCTION  is implemented by skimage's functions
+    # please first re-scale input image to 0~levels-1 gray-level,
+    M, N = gray_img.shape
+    feature_img = np.zeros([M, N])
+
+    for i in range(M):
+        for j in range(N):
+            win_img = glcm_window_img(gray_img, neighbor=win_order, current_row=i, current_col=j, fill=fill_type)
+
+            glcm = greycomatrix(win_img.astype('uint8'), [stepsize], [angles],
+                         levels=levels, symmetric=symm, normed=norm)
+            feature_img[i, j] = greycoprops(glcm, feature)[0, 0]
 
     return scale_image(feature_img)
 
