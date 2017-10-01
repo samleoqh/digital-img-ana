@@ -353,6 +353,25 @@ def get_glcm(win_img, type_name=None, weights=None, stepsize=1, level=0):
         glcm = isotropic_glcm(win_img, weights, stepsize,level=level)
     return glcm
 
+@jit
+def glcm_feature_img(gray_img, win_order=3, feature='correlation', glcm_type='isotropic', weights=None,
+                     fill_type='mirror', norm=True, symm=True, stepsize=1, rqnt=False, level=0):
+    if rqnt and level > 0:
+         req_img = requantize(gray_img, level_num= level-1)
+         scl_img = scale_image(req_img, 0, level-1)
+    else:
+        scl_img = gray_img.copy()
+
+    M, N = gray_img.shape
+    feature_img = np.zeros([M, N])
+
+    for i in range(M):
+        for j in range(N):
+            win_img = glcm_window_img(scl_img, neighbor=win_order, current_row=i, current_col=j, fill=fill_type)
+            glcm = get_glcm(win_img, glcm_type, weights, stepsize=stepsize,level=level)
+            feature_img[i, j] = glcm_measures(glcm, name=feature, normed=norm, symmetric=symm)
+
+    return scale_image(feature_img)
 
 @jit
 def construct_glcm_feature_img(gray_img, win_order=3, feature='correlation', glcm_type='isotropic', weights=None,
@@ -363,7 +382,7 @@ def construct_glcm_feature_img(gray_img, win_order=3, feature='correlation', glc
     for i in range(M):
         for j in range(N):
             win_img = glcm_window_img(gray_img, neighbor=win_order, current_row=i, current_col=j, fill=fill_type)
-            glcm = get_glcm(win_img, glcm_type, weights, stepsize=stepsize,level=0)
+            glcm = get_glcm(win_img, glcm_type, weights, stepsize=stepsize,level=level)
             feature_img[i, j] = glcm_measures(glcm, name=feature, normed=norm, symmetric=symm)
 
     return scale_image(feature_img)
